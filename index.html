@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VueloSeguro PRO — Drone Flight Forecast</title>
+    <meta name="description" content="Pronóstico avanzado para vuelo de drones. Condiciones meteorológicas, viento, GPS y señal en tiempo real.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+
+    <!-- Ambient Background -->
+    <div class="ambient-glow" id="ambient-glow"></div>
+
+
+    <!-- Loading Screen with Radar Scanning Telemetry -->
+    <div id="loading-screen">
+        <div class="loader-radar">
+            <div class="radar-sweep"></div>
+            <div class="radar-ping"></div>
+            <div class="radar-center-drone">
+                <svg class="radar-drone-svg" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 5l14 14M19 5L5 19"></path>
+                    <circle cx="12" cy="12" r="2.5" fill="var(--blue)"></circle>
+                    <circle cx="5" cy="5" r="2.5"></circle>
+                    <circle cx="19" cy="5" r="2.5"></circle>
+                    <circle cx="5" cy="19" r="2.5"></circle>
+                    <circle cx="19" cy="19" r="2.5"></circle>
+                </svg>
+            </div>
+        </div>
+        <p class="loader-brand">VueloSeguro <span class="badge-pro">Pro</span></p>
+        <p id="loading-text">Calibrando sensores...</p>
+    </div>
+
+    <!-- App -->
+    <main id="app-content">
+
+        <!-- Ambient Background Blobs -->
+        <div class="ambient-glow-blobs">
+            <div class="blob blob-1"></div>
+        </div>
+
+        <!-- Scroll Area -->
+        <div class="scroll-area no-scrollbar">
+
+            <!-- Header -->
+            <header class="header">
+                <div>
+                    <h1>VueloSeguro <span class="badge-pro">Pro</span></h1>
+                    <div class="header-location-container">
+                        <p id="location-name" class="header-location">
+                            <i data-lucide="map-pin"></i> Localizando...
+                        </p>
+                        <button id="btn-change-location" class="btn-change-location" onclick="openLocationModal()" style="display: none;">Cambiar</button>
+                    </div>
+                </div>
+                <button class="btn-settings" id="btn-settings" onclick="openSettings()">
+                    <i data-lucide="settings"></i>
+                </button>
+            </header>
+
+            <!-- Hero -->
+            <section id="hero-section" class="hero">
+
+                <!-- Clickable Suitability Trigger Area -->
+                <div class="suitability-trigger-area" onclick="openSuitabilityDetail()" style="cursor: pointer;">
+                    <div class="score-ring-wrap">
+                        <div class="score-ring-glow" id="score-glow"></div>
+                        <svg viewBox="0 0 140 140">
+                            <circle class="score-track" cx="70" cy="70" r="62"></circle>
+                            <circle id="score-circle" class="score-progress" cx="70" cy="70" r="62"
+                                    stroke="var(--green)"
+                                    stroke-dasharray="389.6"
+                                    stroke-dashoffset="0"></circle>
+                        </svg>
+                        <div class="score-center">
+                            <span id="score-value" class="score-number">100</span>
+                            <span class="score-label">Score</span>
+                        </div>
+                    </div>
+
+                    <h2 id="main-status-title" class="hero-title">Óptimo</h2>
+                    <p id="main-status-reason" class="hero-reason">Clima perfecto para volar.</p>
+                </div>
+            </section>
+
+            <!-- Days -->
+            <nav class="days-nav">
+                <div id="days-container" class="days-scroll no-scrollbar"></div>
+            </nav>
+
+            <!-- Hours -->
+            <div class="hours-section">
+                <div class="section-header">
+                    <span class="section-title">Pronóstico por hora</span>
+                </div>
+                <div class="hours-scroll-wrapper">
+                    <canvas id="daynight-arc-canvas" class="daynight-arc-canvas"></canvas>
+                    <div id="hours-container" class="hours-scroll no-scrollbar"></div>
+                </div>
+            </div>
+
+            <!-- Content Sections -->
+            <div class="content-sections">
+
+                <!-- Centro de Operaciones -->
+                <div>
+                    <div class="label-row">
+                        <span class="label-title"><i data-lucide="layout-grid" style="color:var(--cyan)"></i> Centro de Operaciones</span>
+                    </div>
+                    <div class="operations-grid">
+                        <div class="ops-card" onclick="openPreFlightScreen()">
+                            <div class="ops-card-header">
+                                <div class="ops-icon-wrap ic-checklist">
+                                    <i data-lucide="clipboard-check"></i>
+                                </div>
+                                <span class="ops-badge" id="ops-preflight-badge">Pendiente</span>
+                            </div>
+                            <span class="ops-title">Chequeo Pre-Vuelo</span>
+                            <span class="ops-desc" id="ops-preflight-desc">Seguridad y Espacio Aéreo</span>
+                        </div>
+
+                        <div class="ops-card" onclick="openLogbookScreen()">
+                            <div class="ops-card-header">
+                                <div class="ops-icon-wrap ic-logbook">
+                                    <i data-lucide="book-open"></i>
+                                </div>
+                                <span class="ops-badge" id="ops-logbook-counter">0 Vuelos</span>
+                            </div>
+                            <span class="ops-title">Bitácora Digital</span>
+                            <span class="ops-desc">Historial de registros</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conditions Overview -->
+                <div>
+                    <div class="label-row">
+                        <span class="label-title"><i data-lucide="gauge" style="color:var(--text-3)"></i> Condiciones</span>
+                    </div>
+                    <div class="conditions-grid">
+                        <div class="cond-card" id="cond-temp">
+                            <div class="cond-icon ic-temp" id="temp-icon-wrap">
+                                <i data-lucide="thermometer" id="temp-icon"></i>
+                            </div>
+                            <div class="cond-val">
+                                <span class="cond-num" id="metric-temp">0</span>
+                                <span class="cond-unit" id="unit-temp">°C</span>
+                            </div>
+                            <span class="cond-label" id="temp-warning">Normal</span>
+                        </div>
+
+                        <div class="cond-card">
+                            <div class="cond-icon ic-wind">
+                                <i data-lucide="wind"></i>
+                            </div>
+                            <div class="cond-val">
+                                <span class="cond-num" id="metric-wind-overview">0</span>
+                                <span class="cond-unit" id="unit-wind-overview">km/h</span>
+                            </div>
+                            <span class="cond-label">Viento</span>
+                        </div>
+
+                        <div class="cond-card">
+                            <div class="cond-icon ic-rain">
+                                <i data-lucide="droplets"></i>
+                            </div>
+                            <div class="cond-val">
+                                <span class="cond-num" id="metric-rain">0</span>
+                                <span class="cond-unit" id="unit-rain">mm</span>
+                            </div>
+                            <span class="cond-label">Precipitaciones</span>
+                        </div>
+
+                        <div class="cond-card">
+                            <div class="cond-icon ic-cloud">
+                                <i data-lucide="cloud"></i>
+                            </div>
+                            <div class="cond-val">
+                                <span class="cond-num" id="metric-clouds">0</span>
+                                <span class="cond-unit">%</span>
+                            </div>
+                            <span class="cond-label">Nubosidad</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wind Analysis -->
+                <div>
+                    <div class="label-row">
+                        <span class="label-title"><i data-lucide="wind" style="color:var(--blue)"></i> Análisis de Viento</span>
+                        <span id="wind-badge" class="label-badge good">Calmo</span>
+                    </div>
+                    <div class="wind-card" onclick="openWindDetail()" style="cursor: pointer;">
+                        <div class="wind-body">
+                            <div class="compass-wrap">
+                                <div class="compass-circle"></div>
+                                <span class="compass-c cn">N</span>
+                                <span class="compass-c cs">S</span>
+                                <span class="compass-c ce">E</span>
+                                <span class="compass-c cw">O</span>
+                                <i id="compass-arrow" data-lucide="navigation-2" class="compass-arrow-icon"
+                                   style="width:22px;height:22px;transform:rotate(0deg);"></i>
+                                <div id="wind-dir-text" class="compass-dir">NNE</div>
+                            </div>
+
+                            <div class="wind-bars-area">
+                                <div class="w-bar-group">
+                                    <div class="w-bar-header">
+                                        <span class="w-bar-name">Base</span>
+                                        <span><span class="w-bar-val" id="metric-wind">0</span><span class="w-bar-unit" id="unit-wind-base">km/h</span></span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div id="bar-wind" class="bar-fill" style="width:0%;background:var(--green);"></div>
+                                    </div>
+                                </div>
+                                <div class="w-bar-group">
+                                    <div class="w-bar-header">
+                                        <span class="w-bar-name">Ráfagas</span>
+                                        <span><span class="w-bar-val" id="metric-gusts">0</span><span class="w-bar-unit" id="unit-wind-gusts">km/h</span></span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div id="bar-gusts" class="bar-fill" style="width:0%;background:var(--green);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signal & GPS -->
+                <div>
+                    <div class="label-row">
+                        <span class="label-title"><i data-lucide="radio" style="color:var(--indigo)"></i> Señal & GPS</span>
+                    </div>
+                    <div class="signal-card">
+                        <div class="signal-grid">
+                            <div class="signal-item">
+                                <div class="signal-item-header">
+                                    <div class="signal-icon ic-sat"><i data-lucide="satellite"></i></div>
+                                    <span id="sat-dot" class="signal-dot" style="background:var(--green);box-shadow:0 0 8px rgba(48,209,88,0.4);"></span>
+                                </div>
+                                <span class="signal-label">Satélites GPS</span>
+                                <div class="signal-val">
+                                    <span id="metric-sats" class="signal-num">0</span>
+                                    <span class="signal-unit">est.</span>
+                                </div>
+                            </div>
+                            <div class="signal-item">
+                                <div class="signal-item-header">
+                                    <div class="signal-icon ic-kp"><i data-lucide="sun"></i></div>
+                                    <span id="kp-dot" class="signal-dot" style="background:var(--green);box-shadow:0 0 8px rgba(48,209,88,0.4);"></span>
+                                </div>
+                                <span class="signal-label">Índice Solar (Kp)</span>
+                                <div class="signal-val">
+                                    <span id="metric-kp" class="signal-num">0.0</span>
+                                    <span class="signal-unit">/ 9</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="app-footer">Algoritmo de vuelo seguro · Open-Meteo & NOAA</p>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast-notification">
+            <i data-lucide="info" class="toast-icon"></i>
+            <span id="toast-message" class="toast-msg">Notificación</span>
+        </div>
+
+        <!-- Wind Detail Screen Overlay -->
+        <section id="wind-detail-screen" class="wind-detail-screen">
+            <div class="screen-ambient-glow-blob" id="wind-screen-glow-blob"></div>
+            <header class="wind-detail-header">
+                <button class="btn-back-wind" id="btn-back-wind" onclick="closeWindDetail()">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="wind-detail-title-wrap">
+                    <h2>Análisis del Viento</h2>
+                    <span id="wind-detail-date" class="wind-detail-date">Cargando fecha...</span>
+                </div>
+                <span id="wind-detail-status-badge" class="label-badge good">Apto</span>
+            </header>
+
+            <div class="wind-detail-body no-scrollbar">
+                <!-- Wind Hero Instrument Panel -->
+                <div class="wind-hero-card">
+                    <div class="wind-dial-wrapper">
+                        <!-- Dual gauge for Base Wind & Gusts -->
+                        <div class="wind-gauge-ring">
+                            <svg class="gauge-svg" viewBox="0 0 160 160">
+                                <circle class="gauge-track inner" cx="80" cy="80" r="62"></circle>
+                                <circle class="gauge-track outer" cx="80" cy="80" r="70"></circle>
+                                <!-- Base Wind Progress Arc (Cyan/Green) -->
+                                <circle id="gauge-wind-arc" class="gauge-progress base-wind" cx="80" cy="80" r="62" stroke="var(--blue)" stroke-dasharray="389.6" stroke-dashoffset="389.6"></circle>
+                                <!-- Gusts Progress Arc (Orange/Red) -->
+                                <circle id="gauge-gusts-arc" class="gauge-progress wind-gusts" cx="80" cy="80" r="70" stroke="var(--orange)" stroke-dasharray="439.8" stroke-dashoffset="439.8"></circle>
+                            </svg>
+                            
+                            <!-- Central Compass Needle inside the Gauge -->
+                            <div class="gauge-compass">
+                                <div class="gauge-compass-circle"></div>
+                                <span class="gauge-c cn">N</span>
+                                <span class="gauge-c cs">S</span>
+                                <span class="gauge-c ce">E</span>
+                                <span class="gauge-c cw">O</span>
+                                <i id="gauge-compass-arrow" data-lucide="navigation-2" class="gauge-compass-arrow-icon" style="transform:rotate(0deg);"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wind speed values -->
+                    <div class="wind-speed-details">
+                        <div class="speed-col">
+                            <span class="speed-type">Viento Base</span>
+                            <div class="speed-number-wrap">
+                                <span class="speed-number" id="detail-wind-val">0</span>
+                                <span class="speed-unit" id="unit-detail-wind">km/h</span>
+                            </div>
+                        </div>
+                        <div class="speed-divider"></div>
+                        <div class="speed-col">
+                            <span class="speed-type">Ráfagas</span>
+                            <div class="speed-number-wrap">
+                                <span class="speed-number text-orange" id="detail-gusts-val">0</span>
+                                <span class="speed-unit" id="unit-detail-gusts">km/h</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="wind-dir-footer">
+                        Dirección: <strong id="detail-wind-dir-text">NNE</strong> (<span id="detail-wind-deg">0</span>°)
+                    </div>
+                </div>
+
+                <!-- Daily Calculated Stats Grid -->
+                <div class="wind-stats-grid">
+                    <div class="w-stat-card">
+                        <div class="w-stat-icon icon-avg"><i data-lucide="activity"></i></div>
+                        <span class="w-stat-label">Promedio Diario</span>
+                        <span class="w-stat-val" id="stat-wind-avg">0 km/h</span>
+                    </div>
+                    <div class="w-stat-card">
+                        <div class="w-stat-icon icon-max"><i data-lucide="trending-up"></i></div>
+                        <span class="w-stat-label">Ráfaga Máxima</span>
+                        <span class="w-stat-val text-red" id="stat-wind-max-gust">0 km/h</span>
+                    </div>
+                </div>
+
+                <!-- Detailed Hourly Timeline Title -->
+                <div class="timeline-title-row">
+                    <span class="timeline-title"><i data-lucide="clock" style="color:var(--text-3)"></i> Pronóstico por Hora</span>
+                    <span id="detail-active-hour" class="section-badge">12 hs</span>
+                </div>
+
+                <!-- Hourly detailed forecast list -->
+                <div id="wind-hourly-list" class="wind-hourly-list no-scrollbar">
+                    <!-- Dynamic Hourly Rows populated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Suitability Detail Screen Overlay -->
+        <section id="suitability-detail-screen" class="suitability-detail-screen">
+            <div class="screen-ambient-glow-blob" id="suitability-screen-glow-blob"></div>
+            <header class="suitability-detail-header">
+                <button class="btn-back-suitability" id="btn-back-suitability" onclick="closeSuitabilityDetail()">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="suitability-detail-title-wrap">
+                    <h2>Análisis de Aptitud</h2>
+                    <span id="suitability-detail-date" class="suitability-detail-date">Cargando fecha...</span>
+                </div>
+                <span id="suitability-detail-status-badge" class="label-badge good">Apto</span>
+            </header>
+
+            <div class="suitability-detail-body no-scrollbar">
+                <!-- Global Telemetry Overview Dial -->
+                <div class="suitability-hero-card">
+                    <div class="suitability-dial-wrapper">
+                        <div class="suitability-gauge-ring">
+                            <svg class="gauge-svg" viewBox="0 0 160 160">
+                                <circle class="gauge-track outer" cx="80" cy="80" r="70" stroke-width="5" fill="none" stroke="rgba(255, 255, 255, 0.025)"></circle>
+                                <circle id="suitability-gauge-arc" class="gauge-progress base-wind" cx="80" cy="80" r="70" stroke-width="6" fill="none" stroke="var(--green)" stroke-dasharray="439.8" stroke-dashoffset="0"></circle>
+                            </svg>
+                            <div class="suitability-dial-center">
+                                <span id="suitability-detail-score-val" class="suitability-dial-num">100</span>
+                                <span class="suitability-dial-label">Score</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="suitability-summary-text">
+                        <h3 id="suitability-detail-status-title">Óptimo</h3>
+                        <p id="suitability-detail-status-reason">Condiciones perfectas para el vuelo de drones.</p>
+                    </div>
+                </div>
+
+                <!-- Checklist of dynamic sensors -->
+                <div class="timeline-title-row" style="margin-top: 10px; margin-bottom: 12px;">
+                    <span class="timeline-title"><i data-lucide="cpu" style="color:var(--blue)"></i> Sensores e Impacto</span>
+                    <span id="suitability-active-hour" class="section-badge">12 hs</span>
+                </div>
+
+                <div id="suitability-telemetry-list" class="suitability-telemetry-list">
+                    <!-- Dynamic cards will be rendered by app.js -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Pre-Flight Checklist and Airspace Screen Overlay -->
+        <section id="preflight-screen" class="preflight-screen">
+            <div class="screen-ambient-glow-blob" id="preflight-screen-glow-blob"></div>
+            <header class="preflight-header">
+                <button class="btn-back-preflight" id="btn-back-preflight" onclick="closePreFlightScreen()">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="preflight-title-wrap">
+                    <h2>Chequeo Pre-Vuelo</h2>
+                    <span id="preflight-date" class="preflight-subtitle">Verificación de despegue</span>
+                </div>
+                <span id="preflight-status-badge" class="label-badge warn">Pendiente</span>
+            </header>
+
+            <div class="preflight-body no-scrollbar">
+                <!-- Airspace Control Panel -->
+                <div class="airspace-card">
+                    <div class="airspace-radar-box">
+                        <div class="radar-circle">
+                            <div class="radar-line"></div>
+                            <div class="radar-dot dot-airport"></div>
+                            <div class="radar-dot dot-drone"></div>
+                        </div>
+                        <div class="airspace-telemetry">
+                            <span class="airspace-alert-title"><i data-lucide="shield-alert" style="width:16px;height:16px;color:var(--orange)"></i> Espacio Aéreo</span>
+                            <span class="airspace-class-text" id="airspace-class">Zona C - Aeropuerto Cercano</span>
+                            <span class="airspace-distance-text" id="airspace-details">Cargando telemetría local...</span>
+                        </div>
+                    </div>
+                    <div class="airspace-regulations">
+                        <span class="reg-rule"><i data-lucide="info"></i> Altura máx: <strong>120m (400ft)</strong></span>
+                        <span class="reg-rule"><i data-lucide="eye"></i> Mantener línea de vista (VLOS)</span>
+                    </div>
+                </div>
+
+                <!-- Dynamic & Physical Checklist -->
+                <div class="timeline-title-row">
+                    <span class="timeline-title"><i data-lucide="list-checks" style="color:var(--cyan)"></i> Lista de Control</span>
+                    <span id="preflight-active-hour" class="section-badge">12 hs</span>
+                </div>
+
+                <div class="checklist-container">
+                    <!-- Dynamic Meteorological Checks (Procedural) -->
+                    <div class="checklist-section-title">Sensores de Clima Dinámico</div>
+                    <div id="dynamic-checks-list" class="checklist-section">
+                        <!-- Dynamic items generated from current weather -->
+                    </div>
+
+                    <!-- Physical Operational Checks -->
+                    <div class="checklist-section-title">Chequeo Físico del Dron</div>
+                    <div class="checklist-section">
+                        <label class="check-item">
+                            <input type="checkbox" class="chk-physical" id="chk-battery" onchange="checkPreFlightProgress()">
+                            <span class="custom-checkbox"></span>
+                            <div class="check-info">
+                                <span class="check-label">Batería del Dron ≥ 80%</span>
+                                <span class="check-sub">Voltaje estable y temperatura de celdas templada</span>
+                            </div>
+                        </label>
+                        <label class="check-item">
+                            <input type="checkbox" class="chk-physical" id="chk-propellers" onchange="checkPreFlightProgress()">
+                            <span class="custom-checkbox"></span>
+                            <div class="check-info">
+                                <span class="check-label">Hélices Inspeccionadas</span>
+                                <span class="check-sub">Sin grietas, ajustadas firmemente a los motores</span>
+                            </div>
+                        </label>
+                        <label class="check-item">
+                            <input type="checkbox" class="chk-physical" id="chk-compass" onchange="checkPreFlightProgress()">
+                            <span class="custom-checkbox"></span>
+                            <div class="check-info">
+                                <span class="check-label">Calibración e IMU</span>
+                                <span class="check-sub">Brújula calibrada y sin interferencias metálicas</span>
+                            </div>
+                        </label>
+                        <label class="check-item">
+                            <input type="checkbox" class="chk-physical" id="chk-controller" onchange="checkPreFlightProgress()">
+                            <span class="custom-checkbox"></span>
+                            <div class="check-info">
+                                <span class="check-label">Enlace de Radio y RTH</span>
+                                <span class="check-sub">Radiocontrol conectado y Altitud de Retorno configurada</span>
+                            </div>
+                        </label>
+                        <label class="check-item">
+                            <input type="checkbox" class="chk-physical" id="chk-sdcard" onchange="checkPreFlightProgress()">
+                            <span class="custom-checkbox"></span>
+                            <div class="check-info">
+                                <span class="check-label">Almacenamiento y Sensores</span>
+                                <span class="check-sub">Tarjeta MicroSD insertada y sensores de obstáculo limpios</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Takeoff Authorization Button -->
+                <div class="takeoff-auth-container">
+                    <button id="btn-takeoff-auth" class="btn-takeoff-auth disabled" onclick="triggerTakeoffAlert()" disabled>
+                        <i data-lucide="shield-alert" class="auth-icon"></i>
+                        <span id="takeoff-auth-text">Chequeo Pendiente</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flight Logbook Screen Overlay -->
+        <section id="logbook-screen" class="logbook-screen">
+            <div class="screen-ambient-glow-blob" id="logbook-screen-glow-blob"></div>
+            <header class="logbook-header">
+                <button class="btn-back-logbook" id="btn-back-logbook" onclick="closeLogbookScreen()">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="logbook-title-wrap">
+                    <h2>Bitácora de Vuelo</h2>
+                    <span class="logbook-subtitle">Registro de operaciones técnicas</span>
+                </div>
+                <div class="logbook-actions-top">
+                    <button class="btn-export-logs" onclick="exportLogsAsJSON()" title="Exportar JSON">
+                        <i data-lucide="download"></i> Exportar
+                    </button>
+                </div>
+            </header>
+
+            <div class="logbook-body no-scrollbar">
+                <!-- Log Quick Stats Card -->
+                <div class="log-stats-card">
+                    <div class="log-stat-item">
+                        <span class="log-stat-num" id="log-stat-total">0</span>
+                        <span class="log-stat-label">Vuelos</span>
+                    </div>
+                    <div class="log-stat-divider"></div>
+                    <div class="log-stat-item">
+                        <span class="log-stat-num text-green" id="log-stat-safe">0</span>
+                        <span class="log-stat-label">Seguros</span>
+                    </div>
+                    <div class="log-stat-divider"></div>
+                    <div class="log-stat-item">
+                        <span class="log-stat-num text-orange" id="log-stat-warn">0</span>
+                        <span class="log-stat-label">Precaución</span>
+                    </div>
+                </div>
+
+                <!-- Log New Flight Button (Trigger Form modal) -->
+                <button class="btn-trigger-log-form" onclick="toggleNewLogForm(true)">
+                    <i data-lucide="plus-circle"></i> Registrar Vuelo Actual
+                </button>
+
+                <!-- New Log Glassmorphic Form Overlay (Inside scroll or modal) -->
+                <div id="new-log-form-container" class="new-log-form-container" style="display: none;">
+                    <div class="form-header">
+                        <h4>Registrar Bitácora</h4>
+                        <button class="btn-close-form" onclick="toggleNewLogForm(false)"><i data-lucide="x"></i></button>
+                    </div>
+                    <form id="frm-new-log" onsubmit="saveFlightLog(event)">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="log-pilot">Piloto Responsable</label>
+                                <input type="text" id="log-pilot" required placeholder="Ej: Juan Pérez">
+                            </div>
+                            <div class="form-group">
+                                <label for="log-drone">Dron Operado</label>
+                                <select id="log-drone" onchange="handleDroneSelectChange()">
+                                    <option value="DJI Mini 4 Pro">DJI Mini 4 Pro</option>
+                                    <option value="DJI Mavic 3 Pro">DJI Mavic 3 Pro</option>
+                                    <option value="DJI Air 3">DJI Air 3</option>
+                                    <option value="FPV Custom">FPV Custom</option>
+                                    <option value="other">Otro (Especificar...)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="log-drone-custom-group" style="display: none;">
+                                <label for="log-drone-custom">Modelo de Dron Personalizado</label>
+                                <input type="text" id="log-drone-custom" placeholder="Ej: DJI Inspire 3">
+                            </div>
+                            <div class="form-group-half">
+                                <div class="form-group">
+                                    <label for="log-bat-start">Batería Inicio (%)</label>
+                                    <input type="number" id="log-bat-start" min="0" max="100" required value="100">
+                                </div>
+                                <div class="form-group">
+                                    <label for="log-bat-end">Batería Fin (%)</label>
+                                    <input type="number" id="log-bat-end" min="0" max="100" required value="20">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="log-notes">Notas / Observaciones de Vuelo</label>
+                                <textarea id="log-notes" rows="2" placeholder="Despeje correcto, sin interferencias. Grabación de video estable."></textarea>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-submit-log">
+                            <i data-lucide="check"></i> Guardar en Bitácora
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Log History Timeline -->
+                <div class="timeline-title-row" style="margin-top: 20px;">
+                    <span class="timeline-title"><i data-lucide="history" style="color:var(--blue)"></i> Registro Histórico</span>
+                    <button class="btn-clear-logs" onclick="clearFlightLogs()"><i data-lucide="trash-2"></i> Borrar Todo</button>
+                </div>
+
+                <div id="logbook-timeline-list" class="logbook-timeline-list">
+                    <!-- Rendered logs -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Location Selection Modal -->
+        <div id="location-modal" class="location-modal-overlay" onclick="if(event.target === this) closeLocationModal()">
+            <div class="location-modal-card">
+                <div class="location-modal-header">
+                    <h3>Seleccionar Ubicación</h3>
+                    <button class="btn-close-modal" onclick="closeLocationModal()">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                
+                <div class="location-modal-body">
+                    <!-- Quick action for Geolocation -->
+                    <button class="btn-modal-gps" onclick="useGPSLocation()">
+                        <i data-lucide="navigation"></i> Usar ubicación GPS actual
+                    </button>
+                    
+                    <div class="modal-divider">
+                        <span>o buscar ciudad</span>
+                    </div>
+                    
+                    <!-- Search Input -->
+                    <div class="search-input-wrapper">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="input-city-search" placeholder="Escribe el nombre de la ciudad..." oninput="handleCitySearchInput(event)">
+                    </div>
+                    
+                    <!-- Search Results -->
+                    <div id="search-results-list" class="search-results-list no-scrollbar"></div>
+                    
+                    <div class="modal-divider">
+                        <span>o ingresar coordenadas</span>
+                    </div>
+                    
+                    <!-- Manual Inputs -->
+                    <div class="manual-coords-inputs">
+                        <div class="coord-input-field">
+                            <label for="input-lat">Latitud</label>
+                            <input type="number" step="any" id="input-lat" placeholder="-34.8727">
+                        </div>
+                        <div class="coord-input-field">
+                            <label for="input-lon">Longitud</label>
+                            <input type="number" step="any" id="input-lon" placeholder="-57.8769">
+                        </div>
+                        <button class="btn-apply-coords" onclick="applyManualCoords()">Aplicar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Screen Overlay -->
+        <section id="settings-screen" class="settings-screen">
+            <div class="screen-ambient-glow-blob" id="settings-screen-glow-blob"></div>
+            <header class="settings-header">
+                <button class="btn-back-settings" id="btn-back-settings" onclick="closeSettings()">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="settings-title-wrap">
+                    <h2>Ajustes</h2>
+                    <span class="settings-subtitle">Personalización y Umbrales</span>
+                </div>
+            </header>
+
+            <div class="settings-body no-scrollbar">
+                <!-- Section 1: Flight Mode Selection (Standard, Filming, Photography) -->
+                <div class="settings-section-card">
+                    <h3 class="settings-section-title"><i data-lucide="compass"></i> Perfil de Vuelo</h3>
+                    <p class="settings-section-desc">Selecciona el tipo de misión para optimizar el algoritmo de aptitud y seguridad.</p>
+                    
+                    <div class="settings-flight-mode-options">
+                        <button id="btn-settings-mode-standard" class="settings-mode-option-btn" onclick="setFlightMode('standard')">
+                            <div class="option-icon-wrap ic-standard">
+                                <i data-lucide="compass"></i>
+                            </div>
+                            <div class="option-info">
+                                <span class="option-title">Vuelo Estándar</span>
+                                <span class="option-desc">Enfocado en física, estabilidad y seguridad general del dron.</span>
+                            </div>
+                            <span class="option-checkmark"><i data-lucide="check"></i></span>
+                        </button>
+
+                        <button id="btn-settings-mode-film" class="settings-mode-option-btn" onclick="setFlightMode('film')">
+                            <div class="option-icon-wrap ic-film">
+                                <i data-lucide="aperture"></i>
+                            </div>
+                            <div class="option-info">
+                                <span class="option-title">Filmación</span>
+                                <span class="option-desc">Sensible al viento y nubes intermedias. Evita tomas movidas.</span>
+                            </div>
+                            <span class="option-checkmark"><i data-lucide="check"></i></span>
+                        </button>
+
+                        <button id="btn-settings-mode-photo" class="settings-mode-option-btn" onclick="setFlightMode('photo')">
+                            <div class="option-icon-wrap ic-photo">
+                                <i data-lucide="camera"></i>
+                            </div>
+                            <div class="option-info">
+                                <span class="option-title">Fotografía / Foto</span>
+                                <span class="option-desc">Permite vuelo nocturno en calma. Estricto con nubes gruesas.</span>
+                            </div>
+                            <span class="option-checkmark"><i data-lucide="check"></i></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Section 2: Units Customization & Preferences -->
+                <div class="settings-section-card">
+                    <h3 class="settings-section-title"><i data-lucide="sliders"></i> Preferencias de Interfaz</h3>
+                    <div class="setting-row">
+                        <div class="setting-label-col">
+                            <span class="setting-row-label">Sistema de Unidades</span>
+                            <span class="setting-row-desc">Alternar entre unidades métricas e imperiales.</span>
+                        </div>
+                        <div class="settings-toggle-group">
+                            <button id="btn-unit-metric" class="toggle-btn active" onclick="setUnitSystem('metric')">Métrico</button>
+                            <button id="btn-unit-imperial" class="toggle-btn" onclick="setUnitSystem('imperial')">Imperial</button>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label-col">
+                            <span class="setting-row-label">Precaución Extrema (Kp)</span>
+                            <span class="setting-row-desc">Alertar GPS inestable con índice Kp ≥ 4 en lugar de 5.</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="chk-kp-sensitivity" onchange="toggleKpSensitivity()">
+                            <span class="slider-switch"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Section 3: Color Accent Preset -->
+                <div class="settings-section-card">
+                    <h3 class="settings-section-title"><i data-lucide="palette"></i> Tema Visual / Acento</h3>
+                    <p class="settings-section-desc">Personaliza el color de realce de la aplicación para adaptarlo a tu estilo.</p>
+                    
+                    <div class="color-accents-grid">
+                        <button class="accent-dot active" style="background:#38bdf8;" onclick="setThemeAccent('sky', '#38bdf8', '#818cf8')" title="Cielo Neón"></button>
+                        <button class="accent-dot" style="background:#10b981;" onclick="setThemeAccent('emerald', '#10b981', '#06b6d4')" title="Esmeralda Cyber"></button>
+                        <button class="accent-dot" style="background:#fbbf24;" onclick="setThemeAccent('amber', '#fbbf24', '#f97316')" title="Ámbar Eléctrico"></button>
+                        <button class="accent-dot" style="background:#f472b6;" onclick="setThemeAccent('rose', '#f472b6', '#ec4899')" title="Rosa Láser"></button>
+                        <button class="accent-dot" style="background:#a855f7;" onclick="setThemeAccent('purple', '#a855f7', '#6366f1')" title="Violeta Futuro"></button>
+                    </div>
+                </div>
+
+                <!-- Section 4: Diagnostics -->
+                <div class="settings-section-card">
+                    <h3 class="settings-section-title"><i data-lucide="database"></i> Diagnóstico</h3>
+                    <div class="settings-cache-box">
+                        <div id="settings-cache-text">Memoria local en caché activa.</div>
+                        <button class="btn-clear-cache" onclick="clearLocalAppCache()"><i data-lucide="trash-2"></i> Limpiar</button>
+                    </div>
+                    <div class="about-version">
+                        <p>VueloSeguro PRO — Versión 2.4.0</p>
+                        <p>Desarrollado con precisión para pilotos profesionales</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+</body>
+</html>
